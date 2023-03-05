@@ -1,0 +1,23 @@
+\documentclass[11pt]{article}
+\usepackage{cs170}
+
+
+\def\title{Web Browser}
+\def\duedate{2/21/2022, at 10:00 pm (grace period until 11:59pm)}
+
+
+
+\begin{document}
+\sethlcolor{lightgray}
+\section{Downloading Web Pages}
+
+\indent While Python's {\color{blue}urllib.parse} works, we will implement a simple version in \hl{url/urlutil.py} file.
+For now, url is limited to scheme, host, port and path. Scheme can be http or https. If http or https is used, the default port will be 80 or 443 respectively.
+
+Socket Programming is done mediocre in \hl{socketutil.py}. The socket connection only supports IPv4 address family. \hl{Send} will sends a message from \hl{request.request.Request} object to the server. The request will be completely sent or the failure of the network will be detected by raising 
+runtime error. Moreover, Keep-alive is not supported and hence, the socket is closed in client side after one receive.
+
+The response from HTTP 1.1 is then saved as a object of \hl{response.response.Response} which again has objects of \hl{Header} and \hl{Body}. 
+A Header object is simply a dictionary of headers and their respective values while body is a string of the whole body. For now, Body object supports 
+printing without tags.
+\end{document}
