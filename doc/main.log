@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex 2023.2.1)  3 MAR 2023 16:00
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex 2023.2.1)  17 MAR 2023 19:53
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -1098,25 +1098,35 @@ Package xypdf Info: Line width: 0.43799pt on input line 10.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
+
+Underfull \hbox (badness 10000) in paragraph at lines 15--17
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 33--36
+
+ []
+
 [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}
 
-] (./main.aux)
+] [2] (./main.aux)
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 316E0CCD66098568FC7629E56DFFD896;154.
+(rerunfilecheck)             Checksum: D8AB146919545DF455077C34C1CF82B8;878.
  ) 
 Here is how much of TeX's memory you used:
- 54064 strings out of 480171
- 1255415 string characters out of 5894490
- 1828162 words of memory out of 5000000
- 71324 multiletter control sequences out of 15000+600000
- 478609 words of font info for 72 fonts, out of 8000000 for 9000
+ 54083 strings out of 480171
+ 1255671 string characters out of 5894490
+ 1833165 words of memory out of 5000000
+ 71335 multiletter control sequences out of 15000+600000
+ 479863 words of font info for 76 fonts, out of 8000000 for 9000
  59 hyphenation exceptions out of 8191
- 130i,12n,132p,3312b,381s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb>
-Output written on main.pdf (1 page, 34056 bytes).
+ 130i,12n,132p,3312b,383s stack positions out of 5000i,500n,10000p,200000b,80000s
+ </home/kaungsithu/.texlive2021/texmf-var/fonts/pk/ljfour/jknappen/ec/tcrm1095.600pk></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb>
+Output written on main.pdf (2 pages, 54763 bytes).
 PDF statistics:
- 31 PDF objects out of 1000 (max. 8388607)
- 23 compressed objects within 1 object stream
- 3 named destinations out of 1000 (max. 500000)
- 21 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 67 PDF objects out of 1000 (max. 8388607)
+ 55 compressed objects within 1 object stream
+ 9 named destinations out of 1000 (max. 500000)
+ 61 words of extra memory for PDF output out of 10000 (max. 10000000)
 

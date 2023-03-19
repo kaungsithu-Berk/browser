@@ -12,3 +12,16 @@ def raiseNotDefined():
     print("*** Method not implemented: %s at line %s of %s" %
           (method, line, fileName))
     sys.exit(1)
+
+def combineFunctions(*funcs):
+    
+    def inner(*args, **kwargs):
+        for f in funcs:
+            f(*args, **kwargs)
+            
+    return inner
+    
+
+
+
+    

@@ -1,26 +1,60 @@
-HTTP_METHODS = {"GET"}
+from enum import Enum, auto
+import os
 
-class Request:
-    def __init__(self, msg: str) -> None:
-        self.msg = msg
+from url.url import *
+
+__all__ = ["HTTPRequest", "FileRequest"]
+
+class HTTPRequest():
+
+    def __init__(self, components: HttpURL, method="GET", headers={}) -> None:
+        self._method = HTTPMethods[method.upper()]
+        self._components = components
+        self._headers = headers
+        
+        self._msg = "{} {} HTTP/1.1".format(self._method.name, self._components.get_path())
+
+        for header, value in self._headers.items():
+            self._msg += "\r\n" + "{}: {}".format(header, value)
+
+        self._msg += "\r\n\r\n"
 
     def __str__(self) -> str:
-        return self.get_msg()
+        return self.get_http_request_text()
     
-    def get_msg(self):
-        return self.msg
+    def get_scheme(self):
+        return self._components.get_scheme()
     
-    def get_encoded_msg(self):
-        return self.msg.encode("utf8")
+    def get_host(self):
+        return self._components.get_host()
     
-def createHTTPRequest(method="GET", path="/", headers={}) -> Request:
-    assert method in HTTP_METHODS
-    msg = "{} {} HTTP/1.1".format(method, path)
+    def get_original_url(self) -> str:
+        return self._components.get_original_url()
+    
+    def get_http_request_text(self) -> str:
+        return self._msg
+    
+    def get_http_request_bytes(self) -> bytes:
+        return self._msg.encode("utf8")
+    
+    def is_get_method(self):
+        return self._method == HTTPMethods.GET
+    
 
-    for header, value in headers.items():
-        msg += "\r\n" + "{}: {}".format(header, value)
+class FileRequest():
+    def __init__(self, components: FileURL) -> None:
+        self.components = components
 
-    msg += "\r\n\r\n"
+    def is_dir(self) -> bool:
+        return os.path.isdir(self.components.get_path())
+    
+    def get_scheme(self) -> Scheme:
+        return self.components.get_scheme()
 
-    return Request(msg)
+    def get_path(self) -> str:
+        return self.components.get_path()
+    
 
+
+class HTTPMethods(Enum):
+    GET = auto()
