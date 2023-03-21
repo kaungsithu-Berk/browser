@@ -6,7 +6,14 @@ import tkinter, tkinter.font
 WIDTH, HEIGHT = 800, 600
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 20
+
 FONTS_CACHE = {}
+def get_font(size, weight, slant):
+    key = (size, weight, slant)
+    if key not in FONTS_CACHE:
+        font = tkinter.font.Font(size=size, weight=weight, slant=slant)
+        FONTS_CACHE[key] = font
+    return FONTS_CACHE[key]
 
 class Browser:
     def __init__(self):
@@ -39,11 +46,9 @@ class Browser:
         )
         self.canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
         self.canvas.bind("<Configure>", self._canvas_resize)
-        self.canvas_width = WIDTH
-        self.canvas_height = HEIGHT
 
         self.scroll = 0
-        self.tokens = []
+        self.tokens = None
 
     def _scrolldown(self, event):
         if self.scroll < self.layout_info['max-scroll']:
@@ -57,7 +62,9 @@ class Browser:
         self._draw()
 
     def _canvas_resize(self, event):
-        self.canvas_width, self.canvas_height = event.width, event.height
+        global WIDTH, HEIGHT
+
+        WIDTH, HEIGHT = event.width, event.height
         self._print_text_on_canvas()
 
     def _mousewheel(self, event):
@@ -72,8 +79,9 @@ class Browser:
             return
         
         response = get(url)
+
         if isinstance(response, HTTPResponse):
-            self.tokens = response.get_tags_and_texts()
+            self.tokens = HTMLParser(response.get_raw_body()).parse()
         else:
             self.tokens = response.get_raw_body()
 
@@ -85,87 +93,101 @@ class Browser:
         self.canvas.delete("all")
         page_coordinates = self.layout_info['page-coordinates']
         for x, y, c, f in page_coordinates:
-            if y > self.scroll + self.canvas_height: continue
+            if y > self.scroll + HEIGHT: continue
             if y + VSTEP < self.scroll: continue
             self.canvas.create_text(x, y - self.scroll, text=c, font=f, anchor='nw')
 
     def _canvas_layout_info(self):
-        return Layout(self.tokens, self.canvas_width, self.canvas_height).get_layout_info()
+        self.document = DocumentLayout(self.tokens)
+        self.document.layout()
+        return self.document.get_layout_info()
 
-        
-        # for word in text.split():
-        #     w = self.bi_times.measure(text=word)
-        #     if cursor_x + w > self.canvas_width - HSTEP:
-        #         cursor_y += self.bi_times.metrics("linespace") * 1.25
-        #         cursor_x = HSTEP
-        #     display_list.append((cursor_x, cursor_y, word))
-        #     cursor_x += w + self.bi_times.measure(text=" ")
-        # print("ended layout calculation")
+
+class DocumentLayout:
+    def __init__(self, node):
+        self.node = node
+        self.parent = None
+        self.children = []
+
+    def layout(self):
+        child = BlockLayout(self.node, self, None)
+        self.children.append(child)
+        child.layout()
+
+        self.display_dict = {'page-coordinates': child.display_list,\
+                'max-scroll': child.cursor_y - HEIGHT}
+
+    def get_layout_info(self):
+        return self.display_dict
+
+
+class BlockLayout:
+    def __init__(self, node, parent, previous) -> None:
+        self.node = node
+        self.parent = parent
+        self.previous = previous
+        self.children = []
     
-        # return {'page-coordinates': display_list,\
-        #         'max-scroll': cursor_y - self.canvas_height}
-
-class Layout:
-    def __init__(self, tokens, canvas_width, canvas_height) -> None:
+    def layout(self):
         self.display_list = []
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.weight = "normal"
         self.style = "roman"
         self.size = 16
-        self.canvas_width = canvas_width
-        self.canvas_height = canvas_height
+
         self.buffer_line = []
 
-        print("Processing Started")
-        for token in tokens:
-            self._process_token(token)
+        if self.node:
+            self._recurse(self.node)
         
         self._flush_buffer_line()
-        print("Processing Ended")
-
-    def get_layout_info(self):
-        return {'page-coordinates': self.display_list,\
-                'max-scroll': self.cursor_y - self.canvas_height}
-
-    def _process_token(self, token):
-
-        if isinstance(token, Text):
-            self._process_text(token)
-        elif token.tag == "i":
-            self.style = "italic"
-        elif token.tag == "/i":
-            self.style = "roman"
-        elif token.tag == "b":
-            self.weight = "bold"
-        elif token.tag == "/b":
-            self.weight = "normal"
-        elif token.tag == "small":
-            self.size -= 2
-        elif token.tag == "/small":
-            self.size += 2
-        elif token.tag == "big":
-            self.size += 4
-        elif token.tag == "/big":
-            self.size -= 4
-        elif token.tag == "br":
-            self._flush_buffer_line()
-        elif token.tag == "p":
-            self._flush_buffer_line()
-            self.cursor_y += VSTEP
-
 
     def _process_text(self, token):
         font = get_font(self.size, self.weight, self.style)
         for word in token.text.split():
             w = font.measure(text=word)
-            if self.cursor_x + w > self.canvas_width - HSTEP:
+            if self.cursor_x + w > WIDTH - HSTEP:
                 self._flush_buffer_line()
 
             #self.display_list.append((self.cursor_x, self.cursor_y, word, font))
             self.buffer_line.append((self.cursor_x, word, font))
             self.cursor_x += w + font.measure(text=" ")
-            
+
+    def _recurse(self, tree):
+        if isinstance(tree, Text):
+            self._process_text(tree)
+        else:
+            print(tree.tag, tree.children)
+            self._open_tag(tree.tag)
+            for child in tree.children:
+                self._recurse(child)
+            self._close_tag(tree.tag)
+
+    def _open_tag(self, tag):
+        if tag == "i":
+            self.style = "italic"
+        elif tag == "b":
+            self.weight = "bold"
+        elif tag == "small":
+            self.size -= 2
+        elif tag == "big":
+            self.size += 4
+        elif tag == "br":
+            self._flush_buffer_line()
+        elif tag == "p":
+            self._flush_buffer_line()
+            self.cursor_y += VSTEP  
+
+    def _close_tag(self, tag):
+        if tag == "i":
+            self.style = "roman"
+        elif tag == "b":
+            self.weight = "normal"
+        elif tag == "small":
+            self.size += 2
+        elif tag == "big":
+            self.size -= 4        
 
     def _flush_buffer_line(self):
         if not self.buffer_line: return
@@ -183,25 +205,10 @@ class Layout:
         self.cursor_y = baseline + 1.25 * max_descent
 
 
-def get_font(size, weight, slant):
-    key = (size, weight, slant)
-    if key not in FONTS_CACHE:
-        font = tkinter.font.Font(size=size, weight=weight, slant=slant)
-        FONTS_CACHE[key] = font
-    return FONTS_CACHE[key]
-
-
 
 if __name__ == "__main__":
     browser = Browser()
     tkinter.mainloop()
-
-    # while(True):
-    #     url = input("Enter url: ")
-    #     if url == "exit":
-    #         break
-        
-    #     print(get(url).get_raw_body())
 
 
 

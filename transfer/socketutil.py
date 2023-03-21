@@ -5,6 +5,9 @@ from typing import Union
 from url.url import *
 
 class Socket:
+    """
+    Implemented based on https://docs.python.org/3/howto/sockets.html
+    """
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP) -> None:
         self.family = family
         self.type = type

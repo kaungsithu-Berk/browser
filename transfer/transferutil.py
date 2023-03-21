@@ -55,7 +55,7 @@ class Cache:
         self.tail.pre = self.head
         self.map: dict[str, CacheNode] = {}
 
-    def get(self, key) -> tuple(HTTPRequest, HTTPResponse):
+    def get(self, key) -> tuple:
         """
         Retrieve the cache node using the key while updating 
         according to the LRU policy.
