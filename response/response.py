@@ -7,7 +7,7 @@ __all__ = ['HTTPResponse', 'FileResponse', 'create_http_response', 'create_file_
 
 class Response:
     """
-    The base class for all responses. All responses have a body. (?)
+    The base class for all responses. All responses have their own body. (?)
     """
     def __init__(self, body: str) -> None:
         self.body = Body(body)
@@ -300,6 +300,7 @@ class HTMLParser:
                 self._add_tag("/head")
             else:
                 break
+
             
 
 

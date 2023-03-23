@@ -51,11 +51,15 @@ class Browser:
         self.tokens = None
 
     def _scrolldown(self, event):
-        if self.scroll < self.layout_info['max-scroll']:
+        if self.tokens == None: return
+
+        if self.scroll < self.document.height - HEIGHT:
             self.scroll += SCROLL_STEP
         self._draw()
 
     def _scrollup(self, event):
+        if self.tokens == None: return
+
         self.scroll -= SCROLL_STEP
         if self.scroll < 0:
             self.scroll = 0
@@ -86,68 +90,157 @@ class Browser:
             self.tokens = response.get_raw_body()
 
     def _print_text_on_canvas(self):
-        self.layout_info = self._canvas_layout_info()
+        if self.tokens == None: return
+
+        self._fill_canvas_layout()
         self._draw()
 
     def _draw(self):
         self.canvas.delete("all")
-        page_coordinates = self.layout_info['page-coordinates']
-        for x, y, c, f in page_coordinates:
-            if y > self.scroll + HEIGHT: continue
-            if y + VSTEP < self.scroll: continue
-            self.canvas.create_text(x, y - self.scroll, text=c, font=f, anchor='nw')
+        for cmd in self.canvas_layout:
+            if cmd.top > self.scroll + HEIGHT: continue
+            if cmd.bottom < self.scroll: continue
+            cmd.execute(self.scroll, self.canvas)
 
-    def _canvas_layout_info(self):
+        # page_coordinates = self.layout_info['page-coordinates']
+        # print(page_coordinates)
+        # for x, y, c, f in page_coordinates:
+        #     if y > self.scroll + HEIGHT: continue
+        #     if y + VSTEP < self.scroll: continue
+        #     self.canvas.create_text(x, y - self.scroll, text=c, font=f, anchor='nw')
+
+    def _fill_canvas_layout(self):
         self.document = DocumentLayout(self.tokens)
         self.document.layout()
-        return self.document.get_layout_info()
+        self.canvas_layout = []
+        self.document.paint(self.canvas_layout)
+        
 
 
 class DocumentLayout:
+    """
+    Represents the root layout object in the tree.
+    Yes, there is another copy of this layout node in the layout tree.
+    """
     def __init__(self, node):
-        self.node = node
+        self.node = node # should be the "html" element
         self.parent = None
-        self.children = []
+        self.children = [] # layout object children
 
     def layout(self):
+        """
+        Build a layout tree recursively (from html tree)
+        """
         child = BlockLayout(self.node, self, None)
         self.children.append(child)
+        self.width = WIDTH - 2 * HSTEP
+        self.x = HSTEP
+        self.y = VSTEP
         child.layout()
+        self.height = child.height + 2 * VSTEP
 
-        self.display_dict = {'page-coordinates': child.display_list,\
-                'max-scroll': child.cursor_y - HEIGHT}
-
-    def get_layout_info(self):
-        return self.display_dict
-
+        #self.display_dict = {'page-coordinates': child.display_list}
+    
+    def paint(self, display_list):
+        self.children[0].paint(display_list)
 
 class BlockLayout:
+    """
+    Represents individual layout object in the tree. 
+    """
+    def __init__(self, node, parent, previous) -> None:
+        self.node = node
+        self.parent = parent
+        self.previous = previous # previous layout object under the same parent (siblings)
+        self.children = []
+
+    def __repr__(self) -> str:
+        return repr(self.node) + ": " \
+            + "x: " + repr(self.x) + ", "\
+            + "y: " + repr(self.y) + ", "\
+            + "width: " + repr(self.width) + ", "\
+            + "height: " + repr(self.height)
+    
+    def layout(self):
+        previous = None
+        for html_child in self.node.children:
+            mode = layout_mode(html_child)
+            if mode == "block":
+                child = BlockLayout(html_child, self, previous)
+            else:
+                child = InlineLayout(html_child, self, previous)
+            previous = child
+            self.children.append(child)
+        
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous is None:
+            self.y = self.parent.y
+        else:
+            self.y = self.previous.y + self.previous.height
+
+        for child in self.children:
+            child.layout()
+
+        self.height = sum([child.height for child in self.children])
+
+        #print(self.node, self.children)
+
+    def paint(self, display_list):
+        for child in self.children:
+            child.paint(display_list)
+
+class InlineLayout:
     def __init__(self, node, parent, previous) -> None:
         self.node = node
         self.parent = parent
         self.previous = previous
         self.children = []
-    
+
+    def __repr__(self):
+        return repr(self.node) + ": " \
+            + "x: " + repr(self.x) + ", "\
+            + "y: " + repr(self.y) + ", "\
+            + "width: " + repr(self.width) + ", "\
+            + "height: " + repr(self.height)
+
     def layout(self):
-        self.display_list = []
-        self.cursor_x = HSTEP
-        self.cursor_y = VSTEP
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous is None:
+            self.y = self.parent.y
+        else:
+            self.y = self.previous.y + self.previous.height
+
+        self.cursor_x = 0 # relative to self.x
+        self.cursor_y = 0 # relative to self.y
         self.weight = "normal"
         self.style = "roman"
         self.size = 16
-
+        self.display_list = []
         self.buffer_line = []
-
-        if self.node:
-            self._recurse(self.node)
-        
+        self._recurse(self.node)  
         self._flush_buffer_line()
+        self.height = self.cursor_y
+
+    def paint(self, display_list):
+        if isinstance(self.node, Element) and self.node == "pre":
+            x2, y2 = self.x + self.width, self.y + self.height
+            rect = DrawRect(self.x, self.y, x2, y2, "gray")
+            display_list.append(rect)
+
+        for x, y, word, font in self.display_list:
+            display_list.append(DrawText(x, y, word, font))
+
 
     def _process_text(self, token):
+        """
+        Process the text line by line. After recursively applying 
+        """
         font = get_font(self.size, self.weight, self.style)
         for word in token.text.split():
             w = font.measure(text=word)
-            if self.cursor_x + w > WIDTH - HSTEP:
+            if self.cursor_x + w > self.width:
                 self._flush_buffer_line()
 
             #self.display_list.append((self.cursor_x, self.cursor_y, word, font))
@@ -158,7 +251,7 @@ class BlockLayout:
         if isinstance(tree, Text):
             self._process_text(tree)
         else:
-            print(tree.tag, tree.children)
+            #print(tree.tag, tree.children)
             self._open_tag(tree.tag)
             for child in tree.children:
                 self._recurse(child)
@@ -195,16 +288,74 @@ class BlockLayout:
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
 
-        for x, word, font in self.buffer_line:
-            y = baseline - font.metrics("ascent")
+        for rel_x, word, font in self.buffer_line:
+            x = self.x + rel_x
+            y = self.y + baseline - font.metrics("ascent")
             self.display_list.append((x, y, word, font))
         
-        self.cursor_x = HSTEP
+        self.cursor_x = 0
         self.buffer_line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
 
+BLOCK_ELEMENTS = [
+    "html", "body", "article", "section", "nav", "aside",
+    "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
+    "footer", "address", "p", "hr", "pre", "blockquote",
+    "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
+    "figcaption", "main", "div", "table", "form", "fieldset",
+    "legend", "details", "summary"
+]
 
+def layout_mode(node):
+    if isinstance(node, Text):
+        return "inline"
+    elif node.children:
+        if any([isinstance(child, Element) and \
+                child.tag in BLOCK_ELEMENTS
+                for child in node.children]):
+            return "block"
+        else:
+            return "inline"
+    else:
+        return "block"
+        
+def print_tree(node, indent=0):
+    print(" " * indent, node)
+    for child in node.children:
+        print_tree(child, indent + 2)
+
+class DrawText:
+    def __init__(self, x1, y1, text, font) -> None:
+        self.top = y1
+        self.left = x1
+        self.text = text
+        self.font = font
+        self.bottom = y1 + font.metrics("linespace")
+
+    def execute(self, scroll, canvas):
+        canvas.create_text(
+            self.left, self.top - scroll,
+            text=self.text,
+            font=self.font,
+            anchor='nw',
+        )
+
+class DrawRect:
+    def __init__(self, x1, y1, x2, y2, color) -> None:
+        self.top = y1
+        self.left = x1
+        self.bottom = y2
+        self.right = x2
+        self.color = color
+    
+    def execute(self, scroll, canvas):
+        canvas.create_rectangle(
+            self.left, self.top - scroll,
+            self.right, self.bottom - scroll,
+            width=0,
+            fill=self.color,
+        )
 
 if __name__ == "__main__":
     browser = Browser()
